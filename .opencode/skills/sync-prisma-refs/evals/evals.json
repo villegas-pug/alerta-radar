@@ -1,0 +1,23 @@
+{
+  "skill_name": "sync-prisma-refs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Renombré el campo `nombres` a `nombreCompleto` en el modelo Persona de Prisma. Actualiza todos los archivos del proyecto que referencien este campo.",
+      "expected_output": "Debe encontrar y actualizar todos los archivos en src/ que contengan 'nombres' relacionado al modelo Persona, incluyendo: schemas de validación, services, types.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Acabo de hacer cambios en mi schema.prisma: renombré apellido1 a primerApellido y apellido2 a segundoApellido en el modelo Persona. Sincroniza todos los archivos del proyecto.",
+      "expected_output": "Debe buscar y reemplazar todas las referencias a apellido1 y apellido2 en todo el codebase src/, incluyendo validate-excel.schema.ts, process-ingestion.service.ts y cualquier otro archivo que los use.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Ejecuté prisma generate y veo que el modelo Familiar ahora tiene un campo nuevo llamado `relacion` (era `parentesco`). Actualiza las referencias en el proyecto.",
+      "expected_output": "Debe detectar que 'parentesco' cambió a 'relacion' en Familiar y actualizar todos los archivos que lo referencien.",
+      "files": []
+    }
+  ]
+}

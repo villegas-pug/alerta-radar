@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model AlertaMigratoria {
+  id                 String    @id @default(uuid()) @map("uId")
+  nombre             String                     @map("sNombre")
+  pasaporte          String                     @map("sPasaporte")
+  nacionalidad       String                     @map("sNacionalidad")
+  tipoAlerta         String                     @map("sTipoAlerta")
+  descripcion        String                     @map("sDescripcion")
+  fechaNacimiento    DateTime?                  @map("dFechaNacimiento")
+  lugarNacimiento    String?                    @map("sLugarNacimiento")
+  genero             String?                    @map("sGenero")
+  fechaAlerta        DateTime                   @map("dFechaAlerta")
+  autoridadEmisora   String?                    @map("sAutoridadEmisora")
+  estatus            String    @default("ACTIVA") @map("sEstatus")
+  fechaCreacion      DateTime  @default(now())   @map("dFechaCreacion")
+  fechaActualizacion DateTime  @updatedAt        @map("dFechaActualizacion")
+  fechaUltimaBusqueda DateTime?                  @map("dFechaUltimaBusqueda")
+  totalBusquedas     Int       @default(0)       @map("nTotalBusquedas")
+  archivoOrigen      String?                    @map("sArchivoOrigen")
+  totalSubidas       Int       @default(0)       @map("nTotalSubidas")
+  notasAdicionales   String?                    @map("sNotasAdicionales")
+  activo             Boolean  @default(true)     @map("bActivo")
+
+  @@index([pasaporte])
+  @@index([nacionalidad])
+  @@index([tipoAlerta])
+  @@index([fechaAlerta])
+  @@index([estatus])
+  @@map("SimAlertaMigratoria")
+}
