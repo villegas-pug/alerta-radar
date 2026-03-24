@@ -1,0 +1,128 @@
+pipeline {
+
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
+
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: 'latest',
+            description: 'Tag de la imagen Docker a desplegar'
+        )
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'prod'],
+            description: 'Ambiente destino del despliegue'
+        )
+    }
+
+    environment {
+        APP_NAME       = 'visia'
+        IMAGE_NAME     = "rovidev/${APP_NAME}"
+        CONTAINER_PORT = '80'
+        HOST_PORT      = '3000'
+    }
+
+    stages {
+
+        // ====== DEPLOY DEV — automático ======
+        stage('Deploy to DEV') {
+            when {
+                expression { params.ENVIRONMENT == 'dev' }
+            }
+            environment {
+                VPS_HOST       = credentials('vps-dev-host')
+                VPS_USER       = credentials('vps-dev-user')
+                CONTAINER_NAME = "${APP_NAME}-dev"
+            }
+            steps {
+                echo "========== [CD] Deploying ${IMAGE_NAME}:${params.IMAGE_TAG} to DEV =========="
+                sshagent(credentials: ['vps-dev-ssh-credentials']) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST \
+                            "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin && \
+                            docker pull ''' + "${IMAGE_NAME}:${params.IMAGE_TAG}" + ''' && \
+                            docker stop $CONTAINER_NAME || true && \
+                            docker rm   $CONTAINER_NAME || true && \
+                            docker run -d \
+                                --name $CONTAINER_NAME \
+                                --restart unless-stopped \
+                                -p $HOST_PORT:$CONTAINER_PORT \
+                                ''' + "${IMAGE_NAME}:${params.IMAGE_TAG}" + ''' && \
+                            docker image prune -f && \
+                            docker images ''' + IMAGE_NAME + ''' --format \"{{.Tag}}\" | \
+                                sort -rn | tail -n +4 | \
+                                xargs -I {} docker rmi ''' + IMAGE_NAME + ''':{} || true && \
+                            docker logout"
+                        '''
+                    }
+                }
+            }
+        }
+
+        // ====== DEPLOY PROD — requiere aprobación manual ======
+        stage('Deploy to PROD') {
+            when {
+                expression { params.ENVIRONMENT == 'prod' }
+            }
+            environment {
+                VPS_HOST       = credentials('vps-prod-host')
+                VPS_USER       = credentials('vps-prod-user')
+                CONTAINER_NAME = "${APP_NAME}-prod"
+            }
+            steps {
+                echo "========== [CD] Deploying ${IMAGE_NAME}:${params.IMAGE_TAG} to PROD =========="
+
+                timeout(time: 10, unit: 'MINUTES') {
+                    input message: "¿Confirmar deploy a PRODUCCIÓN de ${IMAGE_NAME}:${params.IMAGE_TAG}?",
+                          ok: 'Desplegar'
+                }
+
+                sshagent(credentials: ['vps-prod-ssh-credentials']) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST \
+                            "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin && \
+                            docker pull ''' + "${IMAGE_NAME}:${params.IMAGE_TAG}" + ''' && \
+                            docker stop $CONTAINER_NAME || true && \
+                            docker rm   $CONTAINER_NAME || true && \
+                            docker run -d \
+                                --name $CONTAINER_NAME \
+                                --restart unless-stopped \
+                                -p $HOST_PORT:$CONTAINER_PORT \
+                                ''' + "${IMAGE_NAME}:${params.IMAGE_TAG}" + ''' && \
+                            docker image prune -f && \
+                            docker images ''' + IMAGE_NAME + ''' --format \"{{.Tag}}\" | \
+                                sort -rn | tail -n +4 | \
+                                xargs -I {} docker rmi ''' + IMAGE_NAME + ''':{} || true && \
+                            docker logout"
+                        '''
+                    }
+                }
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo "========== CD #${BUILD_NUMBER} — ${APP_NAME}:${params.IMAGE_TAG} desplegado en ${params.ENVIRONMENT} =========="
+        }
+        failure {
+            echo "========== CD #${BUILD_NUMBER} fallido — entorno: ${params.ENVIRONMENT} =========="
+        }
+    }
+}
