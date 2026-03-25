@@ -8,6 +8,11 @@ pipeline {
       IMAGE_TAG  = "${BUILD_NUMBER}"
    }
 
+   triggers {
+      // Ejecuta CI en cada push a cualquier rama
+      pollSCM('H/1 * * * *') // Verifica cambios cada 1 minuto
+   }
+
    stages {
 
       stage('Install & Build') {
@@ -20,9 +25,8 @@ pipeline {
          steps {
                echo "========== [CI] Install & Build — rama: ${env.BRANCH_NAME} =========="
                sh '''
-                  npm install -g bun
-                  bun install
-                  bun run build
+                  npm install
+                  npm run build
                '''
          }
       }
@@ -51,14 +55,17 @@ pipeline {
 
    post {
       always {
-         sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
+         sh """
+            docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true
+            docker image prune -f || true
+         """
       }
       success {
          echo "========== CI #${BUILD_NUMBER} completado — ${IMAGE_NAME}:${IMAGE_TAG} =========="
          script {
                // BRANCH_NAME es provisto automáticamente por Multibranch Pipeline
                def targetEnv = env.BRANCH_NAME == 'main' ? 'prod' : 'dev'
-               build job: 'visia-cd',
+               build job: 'alerta-radar-cd',
                      parameters: [
                         string(name: 'IMAGE_TAG',   value: "${BUILD_NUMBER}"),
                         string(name: 'ENVIRONMENT', value: targetEnv)
